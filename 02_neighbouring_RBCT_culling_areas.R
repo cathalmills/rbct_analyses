@@ -23,29 +23,23 @@ require(loo)
 
 
 #Directory Management etc ----
-data.dir2 <- "C:/Users/mills/Documents/badger_culling/data"
-out.dir2 <- "C:/Users/mills/Documents/badger_culling/output"
-stan.dir2 <- "C:/Users/mills/Documents/badger_culling/stan"
-plot_val_cols <- c("#2196F3", "red")
-tmp <- data.table(read_xlsx(file.path(data.dir2,"breakdown_data_2013_analysis.xlsx"), sheet = 1))
+data.dir2 <- ""
+out.dir2 <- ""
 
+plot_val_cols <- c("#2196F3", "red")
 
 #Load in data ----
 rbctconf_outside <- data.table(read_xlsx(file.path(data.dir2,"outside_areas_rbct.xlsx"), sheet = 1))
-rbctconf_outside
 
 rbctconf_outside_follow <- data.table(read_xlsx(file.path(data.dir2,"outside_areas_rbct.xlsx"), sheet = 2))
-rbctconf_outside_follow
 
 rbctconf_outside_after <- data.table(read_xlsx(file.path(data.dir2,"outside_areas_rbct.xlsx"), sheet = 3))
-rbctconf_outside_after
+
 
 rbctconf_outside$Triplet<-relevel(factor(rbctconf_outside$Triplet), ref="J")
 rbctconf_outside$Treatment<-relevel(factor(rbctconf_outside$Treatment), ref="Survey-only")
-rbctconf_outside$Treatment
 
 rbctconf_outside_follow$Triplet<-relevel(factor(rbctconf_outside_follow$Triplet), ref="J")
-rbctconf_outside_follow
 rbctconf_outside_follow$Treatment<-relevel(factor(rbctconf_outside_follow$Treatment), ref="Survey-only")
 
 
@@ -73,10 +67,10 @@ rs1_outside_after<-glm(Incidence~Treatment+Triplet+log(Hist3yr)+log(Baseline), f
 summary(rs1_outside_after)
 
 
+rs1_outside_se <- sqrt(diag(vcov(rs1_outside)))*sqrt(rs1_outside$deviance/rs1_outside$df.residual)
+rs1_outside_follow_se <- sqrt(diag(vcov(rs1_outside_follow)))*sqrt(rs1_outside_follow$deviance/rs1_outside_follow$df.residual)
+rs1_outside_after_se <- sqrt(diag(vcov(rs1_outside_after))) * sqrt(rs1_outside_after$deviance/rs1_outside_after$df.residual)
 
-rs1_outside_se <- sqrt(diag(vcov(rs1_outside)))
-rs1_outside_after_se <- sqrt(diag(vcov(rs1_outside_after)))
-rs1_outside_after_se <- sqrt(diag(vcov(rs1_outside_after)))
 
 exp(rs1_outside$coefficients[2])-1
 exp(rs1_outside$coefficients[2]-qnorm(0.975) * rs1_outside_se[2])-1
@@ -306,7 +300,7 @@ cv_mods_outside_after[which(mod == "rs3_outside_after"), MAE:= mean(abs_errors_3
 cv_mods_outside_after
 
 
-#Model 3a in the text----
+#Model 3a ----
 rs3a_outside<- glmmTMB(Incidence~log(Hist3yr)+log(Baseline),family=genpois, data=rbctconf_outside)
 summary(rs3a_outside)
 plot(simulateResiduals(rs3a_outside))
@@ -398,7 +392,7 @@ cv_mods_outside_after
 
 rs3c_after<-glmmTMB(Incidence~Treatment + log(Hist3yr)+offset(log(Baseline))+Triplet,family=genpois, data=rbctconf_outside_after)
 
-#Model 4 in the text----
+#Model 4 ----
 rs4_outside<-glmmTMB(Incidence~Treatment+Triplet+
                        log(Hist3yr)+offset(log(hdyrsrisk)), family=genpois,data=rbctconf_outside)
 summary(rs4_outside)
@@ -724,7 +718,7 @@ AICc_rs4c_outside_after <- AICc(rs4c_outside_after)
 AICc_rs4c_outside_after
 
 
-#Model 4d in the text----
+#Model 4d ----
 rs4d_outside<-glmmTMB(Incidence~log(Hist3yr)+log(hdyrsrisk), family=genpois,
                       data=rbctconf_outside)
 summary(rs4d_outside)
@@ -825,7 +819,7 @@ AICc_rs4d_outside_after
 
 
 
-#Model 5 in the text----
+#Model 5 ----
 rs5_outside<-lm(Incidence/hdyrsrisk~Treatment+Triplet+log(Hist3yr), data=rbctconf_outside)
 rs5_outside$coefficients*mean(rbctconf_outside$hdyrsrisk)
 summary(rs5_outside)
@@ -933,7 +927,7 @@ BIC_rs5_outside_after
 AICc_rs5_outside_after <- AICc(rs5_outside_after)
 AICc_rs5_outside_after
 
-#Model 5a in the text----
+#Model 5a ----
 rs5a_outside<-lm(Incidence/hdyrsrisk~log(Hist3yr), data=rbctconf_outside)
 summary(rs5a_outside)
 
@@ -2358,8 +2352,8 @@ ggsave(rs_pois_outside_after_post_plot, file = file.path(out.dir2, "rs_pois_outs
 
 
 
-#Model 1aB and Poisson Effects Together -----
-tmp <- copy(draws_rs1_outside_B_improved)
+#Model 1aB (c.2) and Poisson Effects Together -----
+tmp <- copy(draws_rs1_outside_aB_improved)
 dens_nb <- density(tmp$TreatmentProactive)
 nb_df <- data.frame(x=dens_nb$x, y=dens_nb$y)
 probs <- c(0.025, 0.975)
@@ -2588,21 +2582,22 @@ ggsave(pois_rs_after_plot_outside, file = file.path(out.dir2, "pois_rs_after_plo
 
 
 
-length(which(draws_rs_pois_outside_after$TreatmentProactive > 0))/nrow(draws_rs_outside)
+length(which(draws_rs_pois_outside_after$TreatmentProactive > 0))/nrow(draws_rs_pois_outside_after)
+length(which(draws_rs_outside_follow_improved$TreatmentProactive > 0))/nrow(draws_rs_outside)
+length(which(draws_rs_outside_after$TreatmentProactive > 0))/nrow(draws_rs_outside)
 
 length(which(draws_rs_outside_after$TreatmentProactive > 0))/nrow(draws_rs_outside)
 length(which(draws_rs_outside_after_improved$TreatmentProactive > 0))/nrow(draws_rs_outside)
 length(which(draws_rs1_outside_B_after$TreatmentProactive > 0))/nrow(draws_rs_outside)
 length(which(draws_rs1_outside_B_after_improved$TreatmentProactive > 0))/nrow(draws_rs_outside)
 
-length(which(draws_rs1_outside_aB_after$TreatmentProactive > 0))/nrow(draws_rs_outside)
+length(which(draws_rs1_outside_aB_after$TreatmentProactive > 0))/nrow(draws_rs1_outside_aB_after)
 length(which((exp(draws_rs_pois_outside_after$TreatmentProactive) - 1) < 0.15))/nrow(draws_rs_outside)
-length(which((exp(draws_rs1_outside_aB_after_improved$TreatmentProactive) - 1) < 0.15))/nrow(draws_rs_outside)
+length(which((exp(draws_rs1_outside_aB_after_improved$TreatmentProactive) - 1) > 0))/nrow(draws_rs_outside)
 
 quantile(exp(draws_rs_outside$TreatmentProactive), probs = c(0.025, 0.5, 0.975))-1
 quantile(exp(draws_rs_outside_follow$TreatmentProactive), probs = c(0.025, 0.5, 0.975))-1
 quantile(exp(draws_rs_outside_after$TreatmentProactive), probs = c(0.025, 0.5, 0.975))-1
-
 loo(rs_outside_after, k_threshold = 0.7)
 loo(rs_outside_after_improved, k_threshold = 0.7)
 loo(rs1_outside_B_after, k_threshold = 0.7)
@@ -2629,7 +2624,11 @@ loo(rs2_outsideB_follow_improved, k_threshold = 0.7)
 
 
 #Posterior Median Estimates of exponentiated (log-scale) treatment parameter -----
+quantile(exp(draws_rs_outside$TreatmentProactive), probs = c(0.025, 0.5, 0.975))-1
+quantile(exp(draws_rs_outside_after$TreatmentProactive), probs = c(0.025, 0.5, 0.975))-1
+
 quantile(exp(draws_rs_outside_improved$TreatmentProactive), probs = c(0.025, 0.5, 0.975))-1
+quantile(exp(draws_rs_outside_follow$TreatmentProactive), probs = c(0.025, 0.5, 0.975))-1
 quantile(exp(draws_rs_outside_follow_improved$TreatmentProactive), probs = c(0.025, 0.5, 0.975))-1
 quantile(exp(draws_rs_outside_after_improved$TreatmentProactive), probs = c(0.025, 0.5, 0.975))-1
 
@@ -2645,7 +2644,7 @@ quantile(exp(draws_rs1_outside_B_improved$TreatmentProactive), probs = c(0.025, 
 quantile(exp(draws_rs1_outside_aB$TreatmentProactive), probs = c(0.025, 0.5, 0.975))-1
 quantile(exp(draws_rs1_outside_aB_follow$TreatmentProactive), probs = c(0.025, 0.5, 0.975))-1
 quantile(exp(draws_rs1_outside_aB_after$TreatmentProactive), probs = c(0.025, 0.5, 0.975))-1
-
+plot(density(exp(draws_rs1_outside_aB_after$TreatmentProactive)- 1))
 quantile(exp(draws_rs1_outside_aB_improved$TreatmentProactive), probs = c(0.025, 0.5, 0.975))-1
 quantile(exp(draws_rs1_outside_aB_follow_improved$TreatmentProactive), probs = c(0.025, 0.5, 0.975))-1
 quantile(exp(draws_rs1_outside_aB_after_improved$TreatmentProactive), probs = c(0.025, 0.5, 0.975))-1

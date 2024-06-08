@@ -8,6 +8,7 @@ library(bridgesampling)
 library(DHARMa)
 require(AER)
 require(vcd)
+require(data.table)
 require(performance)
 require(cowplot)
 require(rstan)
@@ -20,28 +21,29 @@ require(loo)
 require(scales)
 require(bayesplot)
 require(extraDistr)
+require(readxl)
 
+
+#Set directories to your local directories which will contain the input data
+  # and output data
 
 # data.dir2 <- ""
 # out.dir2 <- ""
-# stan.dir2 <- ""
 
-plot_val_cols <- c("#2196F3", "red")
+#Setting colours for plots
+plot_val_cols <- c("#2196F3", "red") #Setting colours for plots
 nb_quant_cols <- c("white", "forestgreen", "white")
 pois_quant_cols <- c("white", "gold", "white")
 
 #Incidence data from initial cull until September 2005;
   # Data as per Donnelly et Al, Nature (2006): http://dx.doi.org/10.1038/nature04454
 rbctconf <- data.table(read_xlsx(file.path(data.dir2,"confirmed_vetnet.xlsx")))
-head(rbctconf)
 #Incidence data from first follow-up cull until September 2005;
   # Data as per Donnelly et Al, Nature (2006): http://dx.doi.org/10.1038/nature04454
 rbctconf_follow <- data.table(read_xlsx(file.path(data.dir2,"confirmed_vetnet_FOLLOW_UP.xlsx")))
-rbctconf_follow
 
 #Incidence data from post-trial period (1 year after last proactive cull until 2013); 
 rbctconf_after <- data.table(read_xlsx(file.path(data.dir2,"confirmed_rbctconf_after_trial.xlsx")))
-rbctconf_after
 
 
 #Recode triplets and treatment (proactive culling vs survey-only)
@@ -79,8 +81,8 @@ performance::check_model(rs1_after)
 #Extracting SE's for estimates of effect size
 rs1_se <- sqrt(diag(vcov(rs1)))
 rs1_follow_se <- sqrt(diag(vcov(rs1_follow)))
-rs1_after_se <- sqrt(diag(vcov(rs1_after)))
-
+rs1_after_se <- sqrt(diag(vcov(rs1_after)))*sqrt(rs1_after$deviance/rs1_after$df.residual)
+rs1_after_se
 #Overdispersion-adjusted CI's (for consistency with previous analyses)
 exp(rs1$coefficients[2])-1
 exp(rs1$coefficients[2]-qnorm(0.975) * rs1_se[2])-1
@@ -350,8 +352,9 @@ rs3a<- glmmTMB(Incidence~log(Hist3yr)+log(Baseline),family=genpois, data=rbctcon
 summary(rs3a)
 plot(simulateResiduals(rs3a))
 check_model(rs3a) 
-#Posterior Predictive check indicates some potential misfit
 
+
+#Posterior Predictive check indicates some potential misfit
 rs3a_follow<-glmmTMB(Incidence~log(Hist3yr)+log(Baseline),family=genpois, data=rbctconf_follow)
 summary(rs3a_follow)
 plot(simulateResiduals(rs3a_follow))
@@ -1009,7 +1012,7 @@ AICc_rs4c_after <- AICc(rs4c_after)
 AICc_rs4c_after
 
 
-#Model 4d in the text----
+#Model 4d ----
 rs4d<-glmmTMB(Incidence~log(Hist3yr)+log(hdyrsrisk), family=genpois,
               data=rbctconf)
 summary(rs4d)
@@ -1109,7 +1112,7 @@ AICc_rs4d_after
 
 
 
-#Model 5 in the text----
+#Model 5 ----
 #Linear Model
 rs5<-lm(Incidence/hdyrsrisk~Treatment+Triplet+log(Hist3yr), data=rbctconf)
 rs5$coefficients*mean(rbctconf$hdyrsrisk)
@@ -1210,7 +1213,7 @@ AICc_rs5_after
 
 
 
-#Model 5a in the text----
+#Model 5a ----
 rs5a<-lm(Incidence/hdyrsrisk~log(Hist3yr), data=rbctconf)
 summary(rs5a)
 ols_test_normality(rs5a)
@@ -1399,6 +1402,7 @@ cv_mods_after[which(mod == "rs5a_after"), BIC_val:= BIC_rs5a_after]
 
 #Bayesian Analysis ----
 #Bayesian Poisson GLM
+set.seed(150499)
 rs_pois <- rstanarm::stan_glm(Incidence~Treatment+A+B+C+D+E+F+G+H+I+log(Hist3yr),
                     data = rbctconf, family = "poisson",
                     offset = log(Baseline),
@@ -1408,6 +1412,8 @@ rs_pois <- rstanarm::stan_glm(Incidence~Treatment+A+B+C+D+E+F+G+H+I+log(Hist3yr)
 loo_rs_pois <- loo(rs_pois, k_threshold = 0.7)
 pp_check(rs_pois, plotfun = "dens_overlay")
 draws_rs_pois <- as.data.table(rs_pois)
+length(which(draws_rs_pois$TreatmentProactive < 0))/nrow(draws_rs_pois)
+
 loo_rs_pois <- loo(rs_pois, k_threshold = 0.7)
 
 
@@ -1668,7 +1674,6 @@ predictive_interval(rs_improved, prob = 0.95)
 predictive_interval(rs, prob = 0.95)
 
 #Small values for reciprocal_dispersion correspond to greater dispersion
-
 draws_rs_improved <- as.data.table(rs_improved)
 rs_follow <-stan_glm.nb(Incidence~Treatment+A+B+C+D+E+F+G+H+I+log(Hist3yr)+log(Baseline),prior_intercept=normal(0, 10),
                         prior = normal(0, 10),
@@ -1691,6 +1696,7 @@ rs_after <-stan_glm.nb(Incidence~Treatment+A+B+C+D+E+F+G+H+I+log(Hist3yr)+log(Ba
                        diagnostic_file = file.path(tempdir(), "df.csv"),refresh=0, data = rbctconf_after)
 pp_check(rs_after, plotfun = "dens_overlay")
 loo_rs_after <- loo(rs_after, k_threshold = 0.7)
+draws_rs_after <- as.data.table(rs_after)
 
 rs_after_improved <- stan_glm.nb(Incidence~Treatment+A+B+C+D+E+F+G+H+I+log(Hist3yr)+log(Baseline),
                                  data = rbctconf_after, 
@@ -2035,6 +2041,9 @@ pp_check(rs2B_after_improved, plotfun = "dens_overlay")
 
 
 #Posterior Median Estimates of exponentiated (log-scale) treatment parameter -----
+quantile(exp(draws_rs_pois$TreatmentProactive), probs = c(0.025, 0.5, 0.975))-1
+quantile(exp(draws_rs_pois_after$TreatmentProactive), probs = c(0.025, 0.5, 0.975))-1
+
 quantile(exp(draws_rs$TreatmentProactive), probs = c(0.025, 0.5, 0.975))-1
 quantile(exp(draws_rs_follow_improved$TreatmentProactive), probs = c(0.025, 0.5, 0.975))-1
 quantile(exp(draws_rs_after$TreatmentProactive), probs = c(0.025, 0.5, 0.975))-1
@@ -2078,14 +2087,12 @@ ggsave(rs1aB_improved_post_plot, file = file.path(out.dir2, "rs_1aBimproved_foll
 
 
 
-#Model 1aB and Poisson Effects Together ----
-tmp <- copy(draws_rs1aB_improved)
+#Model rs1 and Poisson Effects Together ----
+tmp <- copy(draws_rs_improved)
 dens_nb <- density(tmp$TreatmentProactive)
 nb_df <- data.frame(x=dens_nb$x, y=dens_nb$y)
 probs <- c(0.025, 0.975)
 quantiles_nb <- quantile(tmp$TreatmentProactive, probs)
-quantiles_nb
-factor(findInterval(nb_df$x,quantiles_nb))
 dens_nb$quant <- factor(findInterval(nb_df$x,quantiles_nb))
 df <- data.table(x = dens_nb$x,
                  y = dens_nb$y,
@@ -2097,8 +2104,6 @@ pois_df <- data.frame(x=dens_pois$x, y=dens_pois$y)
 probs <- c(0.025, 0.975)
 quantiles_pois <- quantile(tmp$TreatmentProactive, probs)
 quantiles_pois
-factor(findInterval(pois_df$x,quantiles_pois))
-
 dens_pois$quant <- factor(findInterval(pois_df$x,quantiles_pois), 
                           labels = c(4, 5, 6))
 
